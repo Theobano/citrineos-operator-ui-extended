@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
+#
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: citrine
+      POSTGRES_PASSWORD: citrine
+      POSTGRES_DB: citrine_auth
+    volumes:
+      - citrine-ui-auth-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U citrine -d citrine_auth']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-db-migrate:
+    build:
+      context: ../
+      dockerfile: ./citrineos-operator-ui/local.Dockerfile
+      target: migrator
+    environment:
+      AUTH_DATABASE_URL: postgresql://citrine:citrine@auth-db:5432/citrine_auth
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    restart: 'no'
+
+  citrine-ui:
+    build:
+      context: ../
+      dockerfile: ./citrineos-operator-ui/local.Dockerfile
+    ports:
+      - 3000:3000
+    environment:
+      AUTH_DATABASE_URL: postgresql://citrine:citrine@auth-db:5432/citrine_auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-to-a-long-random-string}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      auth-db-migrate:
+        condition: service_completed_successfully
+
+volumes:
+  citrine-ui-auth-db:

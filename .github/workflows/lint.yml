@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Linter
+
+on:
+  pull_request:
+
+concurrency:
+  # Rerun check when the PR is updated, https://stackoverflow.com/a/72408109
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linter:
+    name: Linter
+    runs-on: ubuntu-22.04 # todo: to prevent needing to run pnpm install we can have our own image where everything is installed
+    strategy:
+      matrix:
+        node-version: [24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
